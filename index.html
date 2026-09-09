@@ -88,6 +88,8 @@
     .icon-button svg { width: 18px; height: 18px; }
 
     .quick-add {
+      position: relative;
+      z-index: 10;
       display: grid;
       grid-template-columns: minmax(180px, 1fr) 190px 190px 52px;
       gap: 10px;
@@ -196,7 +198,6 @@
     .calendar-footer { display: flex; justify-content: space-between; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #e5e5e5; }
     .calendar-action { padding: 8px 12px; border: 0; border-radius: 4px; color: #005a9e; background: transparent; font-weight: 600; cursor: pointer; }
     .calendar-action:hover { background: #f0f0f0; }
-    }
     .add-button {
       display: grid;
       place-items: center;
@@ -362,7 +363,7 @@
             <button class="calendar-nav" id="previousMonth" type="button" title="Previous month" aria-label="Previous month"><i data-lucide="chevron-left"></i></button>
             <button class="calendar-nav" id="nextMonth" type="button" title="Next month" aria-label="Next month"><i data-lucide="chevron-right"></i></button>
           </div>
-          <div class="calendar-weekdays" aria-hidden="true"><span class="weekend">Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span class="weekend">Sa</span></div>
+          <div class="calendar-weekdays" aria-hidden="true"><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span class="weekend">Sa</span><span class="weekend">Su</span></div>
           <div class="calendar-days" id="calendarDays"></div>
           <div class="calendar-footer"><button class="calendar-action" id="clearDate" type="button">Clear</button><button class="calendar-action" id="todayDate" type="button">Today</button></div>
         </div>
@@ -448,7 +449,8 @@
       const month = calendarView.getMonth();
       document.querySelector("#calendarMonth").textContent = new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" }).format(calendarView);
       const firstDay = new Date(year, month, 1);
-      const gridStart = new Date(year, month, 1 - firstDay.getDay());
+      const mondayOffset = (firstDay.getDay() + 6) % 7;
+      const gridStart = new Date(year, month, 1 - mondayOffset);
       const today = toDateValue(new Date());
       calendarDays.innerHTML = Array.from({ length: 42 }, (_, index) => {
         const date = new Date(gridStart);
