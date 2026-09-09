@@ -112,15 +112,90 @@
       transition: border-color .18s ease, background .18s ease;
     }
     .field:focus { border-color: #8aad9c; background: #fff; }
+    .date-picker { position: relative; min-width: 0; }
     #dateInput {
+      width: 100%;
       height: 52px;
       font-size: 1rem;
       font-weight: 600;
-    }
-    #dateInput::-webkit-calendar-picker-indicator {
-      width: 22px;
-      height: 22px;
       cursor: pointer;
+    }
+    .date-picker-icon {
+      position: absolute;
+      top: 15px;
+      right: 13px;
+      width: 21px;
+      height: 21px;
+      color: #52645b;
+      pointer-events: none;
+    }
+    .calendar-popover {
+      position: absolute;
+      z-index: 20;
+      top: calc(100% + 8px);
+      right: 0;
+      width: 350px;
+      padding: 14px;
+      border: 1px solid #d4d4d4;
+      border-radius: 8px;
+      color: #242424;
+      background: #fff;
+      box-shadow: 0 14px 34px rgba(0, 0, 0, .18);
+      font-family: "Segoe UI", "DM Sans", sans-serif;
+    }
+    .calendar-popover[hidden] { display: none; }
+    .calendar-header { display: grid; grid-template-columns: 1fr 40px 40px; align-items: center; gap: 4px; margin-bottom: 10px; }
+    .calendar-month { padding: 8px; font-size: 1rem; font-weight: 600; }
+    .calendar-nav {
+      width: 40px;
+      height: 40px;
+      display: grid;
+      place-items: center;
+      border: 0;
+      border-radius: 4px;
+      background: transparent;
+      cursor: pointer;
+    }
+    .calendar-nav:hover { background: #f2f2f2; }
+    .calendar-nav svg { width: 18px; height: 18px; }
+    .calendar-weekdays, .calendar-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+    .calendar-weekdays span {
+      display: grid;
+      place-items: center;
+      height: 30px;
+      color: #5f5f5f;
+      font-size: .76rem;
+      font-weight: 600;
+    }
+    .calendar-weekdays .weekend { color: #aaa; }
+    .calendar-day {
+      position: relative;
+      height: 42px;
+      border: 0;
+      border-radius: 4px;
+      color: #242424;
+      background: transparent;
+      font-size: .9rem;
+      cursor: pointer;
+    }
+    .calendar-day:hover { background: #ededed; }
+    .calendar-day.weekend { color: #a0a0a0; background: #fafafa; }
+    .calendar-day.outside { color: #b8b8b8; }
+    .calendar-day.today::after {
+      content: "";
+      position: absolute;
+      right: 9px;
+      bottom: 5px;
+      left: 9px;
+      height: 2px;
+      background: #0067c0;
+    }
+    .calendar-day.selected { color: #fff; background: #0067c0; font-weight: 600; }
+    .calendar-day.selected:hover { background: #005a9e; }
+    .calendar-day.selected::after { background: #fff; }
+    .calendar-footer { display: flex; justify-content: space-between; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #e5e5e5; }
+    .calendar-action { padding: 8px 12px; border: 0; border-radius: 4px; color: #005a9e; background: transparent; font-weight: 600; cursor: pointer; }
+    .calendar-action:hover { background: #f0f0f0; }
     }
     .add-button {
       display: grid;
@@ -247,8 +322,10 @@
       .app { padding: 18px 14px 32px; }
       .sync-status { display: none; }
       .quick-add { grid-template-columns: 1fr 44px; }
-      .quick-add select, .quick-add input[type="date"] { grid-column: span 1; }
+      .quick-add select { grid-column: 1 / -1; }
+      .date-picker { grid-column: 1; }
       #taskInput { grid-column: 1 / -1; }
+      .calendar-popover { right: auto; left: 0; width: min(350px, calc(100vw - 28px)); }
       .matrix { grid-template-columns: 1fr; }
       .quadrant { min-height: 230px; }
     }
@@ -276,7 +353,20 @@
         <option value="delegate">Delegate</option>
         <option value="eliminate">Consider later</option>
       </select>
-      <input class="field" id="dateInput" type="date" aria-label="Target date">
+      <div class="date-picker">
+        <input class="field" id="dateInput" type="text" placeholder="Target date" aria-label="Target date" aria-haspopup="dialog" aria-expanded="false" readonly>
+        <i class="date-picker-icon" data-lucide="calendar-days"></i>
+        <div class="calendar-popover" id="calendarPopover" role="dialog" aria-label="Choose target date" hidden>
+          <div class="calendar-header">
+            <div class="calendar-month" id="calendarMonth"></div>
+            <button class="calendar-nav" id="previousMonth" type="button" title="Previous month" aria-label="Previous month"><i data-lucide="chevron-left"></i></button>
+            <button class="calendar-nav" id="nextMonth" type="button" title="Next month" aria-label="Next month"><i data-lucide="chevron-right"></i></button>
+          </div>
+          <div class="calendar-weekdays" aria-hidden="true"><span class="weekend">Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span class="weekend">Sa</span></div>
+          <div class="calendar-days" id="calendarDays"></div>
+          <div class="calendar-footer"><button class="calendar-action" id="clearDate" type="button">Clear</button><button class="calendar-action" id="todayDate" type="button">Today</button></div>
+        </div>
+      </div>
       <button class="add-button" type="submit" title="Add task" aria-label="Add task"><i data-lucide="plus"></i></button>
     </form>
 
@@ -311,6 +401,9 @@
     const taskInput = document.querySelector("#taskInput");
     const quadrantInput = document.querySelector("#quadrantInput");
     const dateInput = document.querySelector("#dateInput");
+    const calendarPopover = document.querySelector("#calendarPopover");
+    const calendarDays = document.querySelector("#calendarDays");
+    let calendarView = new Date();
     const settingsDialog = document.querySelector("#settingsDialog");
     const syncStatus = document.querySelector("#syncStatus");
 
@@ -342,6 +435,59 @@
       today.setHours(0, 0, 0, 0);
       return value && new Date(value + "T00:00:00") < today;
     }
+
+    function toDateValue(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    }
+
+    function renderCalendar() {
+      const year = calendarView.getFullYear();
+      const month = calendarView.getMonth();
+      document.querySelector("#calendarMonth").textContent = new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" }).format(calendarView);
+      const firstDay = new Date(year, month, 1);
+      const gridStart = new Date(year, month, 1 - firstDay.getDay());
+      const today = toDateValue(new Date());
+      calendarDays.innerHTML = Array.from({ length: 42 }, (_, index) => {
+        const date = new Date(gridStart);
+        date.setDate(gridStart.getDate() + index);
+        const value = toDateValue(date);
+        const classes = ["calendar-day"];
+        if (date.getDay() === 0 || date.getDay() === 6) classes.push("weekend");
+        if (date.getMonth() !== month) classes.push("outside");
+        if (value === today) classes.push("today");
+        if (value === dateInput.value) classes.push("selected");
+        return `<button class="${classes.join(" ")}" type="button" data-date="${value}" aria-label="${date.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })}">${date.getDate()}</button>`;
+      }).join("");
+    }
+
+    function openCalendar() {
+      calendarView = dateInput.value ? new Date(dateInput.value + "T00:00:00") : new Date();
+      renderCalendar();
+      calendarPopover.hidden = false;
+      dateInput.setAttribute("aria-expanded", "true");
+    }
+
+    function closeCalendar() {
+      calendarPopover.hidden = true;
+      dateInput.setAttribute("aria-expanded", "false");
+    }
+
+    dateInput.addEventListener("click", () => calendarPopover.hidden ? openCalendar() : closeCalendar());
+    document.querySelector("#previousMonth").addEventListener("click", () => { calendarView.setMonth(calendarView.getMonth() - 1); renderCalendar(); });
+    document.querySelector("#nextMonth").addEventListener("click", () => { calendarView.setMonth(calendarView.getMonth() + 1); renderCalendar(); });
+    calendarDays.addEventListener("click", event => {
+      const day = event.target.closest(".calendar-day");
+      if (!day) return;
+      dateInput.value = day.dataset.date;
+      closeCalendar();
+    });
+    document.querySelector("#todayDate").addEventListener("click", () => { dateInput.value = toDateValue(new Date()); closeCalendar(); });
+    document.querySelector("#clearDate").addEventListener("click", () => { dateInput.value = ""; closeCalendar(); });
+    document.addEventListener("click", event => { if (!event.target.closest(".date-picker")) closeCalendar(); });
+    document.addEventListener("keydown", event => { if (event.key === "Escape") closeCalendar(); });
 
     function render() {
       document.querySelectorAll(".quadrant").forEach(quadrant => {
