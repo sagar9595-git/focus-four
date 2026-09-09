@@ -319,6 +319,32 @@
     .text-button.primary { color: #fff; border-color: var(--ink); background: var(--ink); }
     .danger { color: #bd4f48; }
 
+    @media (min-width: 761px) {
+      body { overflow: hidden; }
+      .app {
+        height: 100dvh;
+        display: grid;
+        grid-template-rows: auto auto minmax(0, 1fr);
+        padding-top: 18px;
+        padding-bottom: 18px;
+      }
+      header { margin-bottom: 16px; }
+      .quick-add { margin-bottom: 16px; }
+      .matrix {
+        min-height: 0;
+        grid-template-rows: repeat(2, minmax(0, 1fr));
+      }
+      .quadrant {
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      .task-list {
+        min-height: 0;
+        overflow-y: auto;
+      }
+    }
+
     @media (max-width: 760px) {
       .app { padding: 18px 14px 32px; }
       .sync-status { display: none; }
