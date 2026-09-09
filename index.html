@@ -89,7 +89,7 @@
 
     .quick-add {
       display: grid;
-      grid-template-columns: minmax(180px, 1fr) 190px 160px 44px;
+      grid-template-columns: minmax(180px, 1fr) 190px 190px 52px;
       gap: 10px;
       padding: 12px;
       margin-bottom: 24px;
@@ -112,6 +112,16 @@
       transition: border-color .18s ease, background .18s ease;
     }
     .field:focus { border-color: #8aad9c; background: #fff; }
+    #dateInput {
+      height: 52px;
+      font-size: 1rem;
+      font-weight: 600;
+    }
+    #dateInput::-webkit-calendar-picker-indicator {
+      width: 22px;
+      height: 22px;
+      cursor: pointer;
+    }
     .add-button {
       display: grid;
       place-items: center;
@@ -137,6 +147,12 @@
       border-radius: 10px;
       background: var(--surface);
       box-shadow: 0 8px 26px rgba(45, 62, 53, .055);
+      transition: border-color .18s ease, background .18s ease, transform .18s ease;
+    }
+    .quadrant.drop-target {
+      border-color: var(--accent);
+      background: var(--tint);
+      transform: translateY(-2px);
     }
     .quadrant[data-quadrant="do"] { --accent: var(--urgent-important); --tint: #fff2f0; }
     .quadrant[data-quadrant="schedule"] { --accent: var(--important); --tint: #edf8f2; }
@@ -168,8 +184,11 @@
       border: 1px solid #e7ebe6;
       border-radius: 8px;
       background: rgba(255,255,255,.92);
+      cursor: grab;
       animation: reveal .22s ease both;
     }
+    .task:active { cursor: grabbing; }
+    .task.dragging { opacity: .42; }
     @keyframes reveal { from { opacity: 0; transform: translateY(5px); } }
     .task-check {
       appearance: none;
@@ -194,8 +213,8 @@
     .task-copy { min-width: 0; }
     .task-title { display: block; overflow-wrap: anywhere; font-size: .87rem; font-weight: 600; }
     .task.done .task-title { color: #9aa39e; text-decoration: line-through; }
-    .due { display: inline-flex; align-items: center; gap: 4px; margin-top: 3px; color: var(--muted); font-size: .68rem; }
-    .due svg { width: 11px; height: 11px; }
+    .due { display: inline-flex; align-items: center; gap: 5px; margin-top: 4px; color: var(--muted); font-size: .78rem; }
+    .due svg { width: 15px; height: 15px; }
     .due.overdue { color: #c3554d; }
     .delete-button { opacity: 0; width: 31px; height: 31px; border: 0; border-radius: 7px; background: transparent; cursor: pointer; }
     .task:hover .delete-button, .delete-button:focus { opacity: 1; background: #f3f5f2; }
@@ -330,7 +349,7 @@
         const tasks = state.tasks.filter(task => task.quadrant === key).sort((a, b) => (a.done - b.done) || (a.date || "9999").localeCompare(b.date || "9999") || b.createdAt - a.createdAt);
         quadrant.querySelector(".count").textContent = tasks.filter(task => !task.done).length;
         quadrant.querySelector(".task-list").innerHTML = tasks.length ? tasks.map(task => `
-          <div class="task ${task.done ? "done" : ""}" data-id="${task.id}">
+          <div class="task ${task.done ? "done" : ""}" data-id="${task.id}" draggable="true">
             <input class="task-check" type="checkbox" ${task.done ? "checked" : ""} aria-label="Mark ${escapeHtml(task.title)} complete">
             <div class="task-copy"><span class="task-title">${escapeHtml(task.title)}</span>${task.date ? `<span class="due ${isOverdue(task.date) && !task.done ? "overdue" : ""}"><i data-lucide="calendar-days"></i>${formatDate(task.date)}</span>` : ""}</div>
             <button class="delete-button" type="button" title="Delete task" aria-label="Delete ${escapeHtml(task.title)}"><i data-lucide="trash-2"></i></button>
@@ -363,6 +382,38 @@
         state.tasks = state.tasks.filter(item => item.id !== task.id);
         save();
       }
+    });
+
+    document.querySelector(".matrix").addEventListener("dragstart", event => {
+      const taskElement = event.target.closest(".task");
+      if (!taskElement) return;
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", taskElement.dataset.id);
+      requestAnimationFrame(() => taskElement.classList.add("dragging"));
+    });
+
+    document.querySelector(".matrix").addEventListener("dragend", event => {
+      event.target.closest(".task")?.classList.remove("dragging");
+      document.querySelectorAll(".quadrant.drop-target").forEach(quadrant => quadrant.classList.remove("drop-target"));
+    });
+
+    document.querySelectorAll(".quadrant").forEach(quadrant => {
+      quadrant.addEventListener("dragover", event => {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+        quadrant.classList.add("drop-target");
+      });
+      quadrant.addEventListener("dragleave", event => {
+        if (!quadrant.contains(event.relatedTarget)) quadrant.classList.remove("drop-target");
+      });
+      quadrant.addEventListener("drop", event => {
+        event.preventDefault();
+        quadrant.classList.remove("drop-target");
+        const task = state.tasks.find(item => item.id === event.dataTransfer.getData("text/plain"));
+        if (!task || task.quadrant === quadrant.dataset.quadrant) return;
+        task.quadrant = quadrant.dataset.quadrant;
+        save();
+      });
     });
 
     function setupMsal() {
